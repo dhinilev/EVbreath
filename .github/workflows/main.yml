@@ -20,44 +20,32 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Find the app folder
-        id: find
+      - name: Build the APK
         run: |
-          for z in $(find . -maxdepth 2 -name "*.zip" -not -path "./.git/*"); do
+          for z in $(find . -maxdepth 2 -name "*.zip"); do
             echo "Unzipping $z"
             unzip -q -o "$z" -d .
           done
-          f=$(find . -name capacitor.config.json -not -path "*/node_modules/*" | head -1)
-          if [ -z "$f" ]; then
-            echo "capacitor.config.json not found. Files in this repo:"
-            find . -maxdepth 3 -not -path "./.git*" | head -80
+          CFG=$(find . -name capacitor.config.json | head -1)
+          if [ -z "$CFG" ]; then
+            echo "capacitor.config.json not found"
+            find . -maxdepth 3 | head -80
             exit 1
           fi
-          echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
-          echo "App folder: $(dirname "$f")"
-
-      - name: Install Capacitor
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: npm install
-
-      - name: Create the Android project
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: npx cap add android
-
-      - name: App icon and splash screen
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: npm run android:assets
-
-      - name: Copy the app into Android
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: npx cap sync android
-
-      - name: Build the APK
-        working-directory: ${{ steps.find.outputs.dir }}/android
-        run: |
+          APP=$(dirname "$CFG")
+          echo "App folder: $APP"
+          cd "$APP"
+          npm install
+          npx cap add android
+          npm run android:assets
+          npx cap sync android
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/EV-Breath.apk"
 
-      - name: Rename
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EV-Breath-${{ github.r
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EV-Breath-APK
+          path: EV-Breath.apk
