@@ -23,6 +23,10 @@ jobs:
       - name: Find the app folder
         id: find
         run: |
+          for z in $(find . -maxdepth 2 -name "*.zip" -not -path "./.git/*"); do
+            echo "Unzipping $z"
+            unzip -q -o "$z" -d .
+          done
           f=$(find . -name capacitor.config.json -not -path "*/node_modules/*" | head -1)
           if [ -z "$f" ]; then
             echo "capacitor.config.json not found. Files in this repo:"
@@ -56,9 +60,4 @@ jobs:
 
       - name: Rename
         working-directory: ${{ steps.find.outputs.dir }}
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EV-Breath-${{ github.run_number }}.apk"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: EV-Breath-APK
-          path: EV-Breath-*.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EV-Breath-${{ github.r
