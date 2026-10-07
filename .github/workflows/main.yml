@@ -8,45 +8,59 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - uses: android-actions/setup-android@v3
 
+      - name: Find the app folder
+        id: find
+        run: |
+          f=$(find . -name capacitor.config.json -not -path "*/node_modules/*" | head -1)
+          if [ -z "$f" ]; then
+            echo "capacitor.config.json not found. Files in this repo:"
+            find . -maxdepth 3 -not -path "./.git*" | head -80
+            exit 1
+          fi
+          echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
+          echo "App folder: $(dirname "$f")"
+
       - name: Install Capacitor
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npm install
 
       - name: Create the Android project
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npx cap add android
 
       - name: App icon and splash screen
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npm run android:assets
 
       - name: Copy the app into Android
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npx cap sync android
 
       - name: Build the APK
-        working-directory: app/android
+        working-directory: ${{ steps.find.outputs.dir }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
       - name: Rename
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk EV-Breath-${{ github.run_number }}.apk
+        working-directory: ${{ steps.find.outputs.dir }}
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EV-Breath-${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: EV-Breath-APK
-          path: app/EV-Breath-*.apk
+          path: EV-Breath-*.apk
